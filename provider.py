@@ -1,23 +1,43 @@
 import os
+import shutil
 import subprocess
+from pathlib import Path
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from laya import Router
+from miners import scan_repository
 
-# Force Python to read .env
 load_dotenv()
 
-# Initialize System One (Laya - Local 421M Decision Model)
+PROMPTS_DIR = Path("prompts")
+
+# System One: Local 421M Laya Model
 laya_router = Router(preload=True)
 
-# Initialize System Two (Groq - Qwen3.8 only qwen model in groq)
+# System Two: Groq Qwen Model
 llm = ChatGroq(
     model_name="qwen/qwen3.8-27b",
-    groq_api_key=os.getenv("GROQ_API_KEY")
+    groq_api_key=os.getenv("GROQ_API_KEY"),
+    max_tokens=512
 )
 
+def load_prompt_template(prompt_name: str) -> str:
+    """Loads a prompt template from prompts/<prompt_name>.md."""
+    file_path = PROMPTS_DIR / f"{prompt_name}.md"
+    if not file_path.exists():
+        raise FileNotFoundError(f"Prompt template missing: {file_path}")
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+def trigger_graphify_hook() -> None:
+    """Asynchronously triggers graphify update in background if binary exists."""
+    if shutil.which("graphify"):
+        try:
+            subprocess.Popen(["graphify", "update", "."], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
 def classify_log_fast(stderr_text: str) -> dict:
-    """Uses Laya for ~30ms terminal error classification."""
     questions = {
         "error_type": {
             "type": "choice",
@@ -34,20 +54,48 @@ def classify_log_fast(stderr_text: str) -> dict:
     tail = stderr_text[-1200:]
     return laya_router.predict({"body": tail}, questions)
 
-def generate_skill_content(prompt: str) -> str:
-    """Uses Groq for full markdown generation."""
+def generate_onboard_guide() -> str:
+    repo_meta = scan_repository()
+    template = load_prompt_template("onboard")
+    prompt = template.format(
+        entry_points=repo_meta['entry_points'],
+        test_runners=repo_meta['test_runners'],
+        tree_sample=repo_meta['tree_sample']
+    )
     response = llm.invoke(prompt)
+    trigger_graphify_hook()
     return response.content
 
+def generate_skill_rules() -> str:
+    repo_meta = scan_repository()
+    template = load_prompt_template("skills")
+    prompt = template.format(entry_points=repo_meta['entry_points'])
+    response = llm.invoke(prompt)
+    trigger_graphify_hook()
+    return response.content
+
+def generate_ci_workflow() -> str:
+    repo_meta = scan_repository()
+    template = load_prompt_template("ci")
+    prompt = template.format(
+        entry_points=repo_meta['entry_points'],
+        test_runners=repo_meta['test_runners']
+    )
+    response = llm.invoke(prompt)
+    content = response.content
+    if "```yaml" in content:
+        content = content.split("```yaml")[1].split("```")[0].strip()
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0].strip()
+    return content
+
 def resolve_conflict_with_context(file_path: str) -> tuple[str, str]:
-    """Parses git conflict markers and uses commit logs + Qwen2.5-Coder to resolve."""
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     if "<<<<<<< " not in content or ">>>>>>> " not in content:
         return "No git conflict markers found in file.", content
 
-    # Pull recent commit logs for context on what both sides were building
     try:
         git_log = subprocess.check_output(
             ["git", "log", "-n", "5", "--oneline", "--", file_path], 
@@ -57,43 +105,25 @@ def resolve_conflict_with_context(file_path: str) -> tuple[str, str]:
     except Exception:
         git_log = "Git log history unavailable."
 
-    prompt = f"""You are an expert Git Conflict Copilot.
-Analyze this file containing Git merge conflict markers and recent commit logs.
-
-### CONFLICTED FILE ({file_path}):
-{content}
-
-### RECENT COMMIT LOG HISTORY:
-{git_log}
-
-Task:
-1. Explain in 2-3 bullet points what both branches (HEAD vs incoming changes) intended to do.
-2. Provide the complete, merged, production-ready code with ALL conflict markers (<<<<<<<, =======, >>>>>>>) cleanly resolved and removed.
-
-Format strictly as:
----EXPLANATION---
-<your explanation here>
----RESOLVED_CODE---
-<clean merged code ONLY>
-"""
-
+    template = load_prompt_template("resolve")
+    prompt = template.format(
+        file_path=file_path,
+        content=content,
+        git_log=git_log
+    )
+    
     response = llm.invoke(prompt)
-    raw_output = response.content
+    raw = response.content
 
-    if "---RESOLVED_CODE---" in raw_output:
-        parts = raw_output.split("---RESOLVED_CODE---")
+    if "---RESOLVED_CODE---" in raw:
+        parts = raw.split("---RESOLVED_CODE---")
         explanation = parts[0].replace("---EXPLANATION---", "").strip()
         resolved_code = parts[1].strip()
-
-        # Clean markdown code block fencing if LLM wrapped it
         if resolved_code.startswith("```"):
-            lines = resolved_code.splitlines()
-            if lines[0].startswith("```"):
-                lines = lines[1:]
+            lines = resolved_code.splitlines()[1:]
             if lines and lines[-1].startswith("```"):
                 lines = lines[:-1]
             resolved_code = "\n".join(lines)
-            
+        trigger_graphify_hook()
         return explanation, resolved_code
-    else:
-        return "Merged successfully.", raw_output
+    return "Merged successfully.", raw

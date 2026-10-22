@@ -10,3 +10,11 @@ dependencies = [
     "python-dotenv>=1.2.4",
     "rich>=15.0.0",
 ]
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

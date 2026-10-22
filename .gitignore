@@ -9,3 +9,8 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# Graphify & Agent generated output
+graphify-out/
+.agents/
+NEWBIE_GUIDE.md

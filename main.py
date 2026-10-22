@@ -1,70 +1,93 @@
 import sys
 import argparse
+import subprocess
+from rich.console import Console
+from rich.panel import Panel
+from rich.syntax import Syntax
 from atomicFS import write_markdown_atomic
 from provider import (
     classify_log_fast, 
-    generate_skill_content, 
+    generate_onboard_guide,
+    generate_skill_rules,
+    generate_ci_workflow,
     resolve_conflict_with_context
 )
+
+console = Console()
 
 def main():
     parser = argparse.ArgumentParser(description="SkillForge Dev Copilot")
     subparsers = parser.add_subparsers(dest="command")
 
-    # Command: onboard
     subparsers.add_parser("onboard", help="Generate NEWBIE_GUIDE.md")
-
-    # Command: skills
     subparsers.add_parser("skills", help="Generate project SKILL.md rules")
+    subparsers.add_parser("ci", help="Generate .github/workflows/ci.yml")
 
-    # Command: debug
-    debug_parser = subparsers.add_parser("debug", help="Triage failing terminal log")
-    debug_parser.add_argument("log_file", help="Path to log or stderr file")
+    debug_parser = subparsers.add_parser("debug", help="Triage failing terminal log file")
+    debug_parser.add_argument("log_file", help="Path to log file")
 
-    # Command: resolve
     resolve_parser = subparsers.add_parser("resolve", help="Context-Aware Merge Conflict Copilot")
-    resolve_parser.add_argument("file_path", help="Path to file with git merge conflicts")
+    resolve_parser.add_argument("file_path", help="Path to conflicted file")
+
+    run_parser = subparsers.add_parser("run", help="Run a command live and catch errors for instant triage")
+    run_parser.add_argument("cmd", nargs=argparse.REMAINDER, help="Command to execute")
 
     args = parser.parse_args()
 
     if args.command == "onboard":
-        print("🔍 Scanning project files...")
-        guide_prompt = "Generate a short NEWBIE_GUIDE.md explaining entry points and setup for a Python project."
-        content = generate_skill_content(guide_prompt)
-        write_markdown_atomic("NEWBIE_GUIDE.md", content)
-        print("✅ NEWBIE_GUIDE.md generated successfully!")
+        with console.status("[bold cyan]Scanning repository & authoring onboarding guide...", spinner="dots"):
+            guide = generate_onboard_guide()
+            write_markdown_atomic("NEWBIE_GUIDE.md", guide)
+        console.print(Panel("[bold green]✅ NEWBIE_GUIDE.md created successfully![/bold green]", title="SkillForge Onboard"))
 
     elif args.command == "skills":
-        print("🧠 Analyzing architectural conventions...")
-        prompt = """Generate a valid agentskills.io SKILL.md file with frontmatter:
----
-name: python-code-conventions
-description: Coding standards and error handling rules for this repo.
----
-# Python Standards
-1. Use type hints for all public functions.
-2. Handle exceptions explicitly with custom error classes.
-"""
-        content = generate_skill_content(prompt)
-        write_markdown_atomic(".agents/skills/python-conventions/SKILL.md", content)
-        print("✅ Created .agents/skills/python-conventions/SKILL.md!")
+        with console.status("[bold magenta]Analyzing code patterns & generating skill rules...", spinner="dots"):
+            rules = generate_skill_rules()
+            write_markdown_atomic(".agents/skills/python-conventions/SKILL.md", rules)
+        console.print(Panel("[bold green]✅ Created .agents/skills/python-conventions/SKILL.md[/bold green]", title="SkillForge Skills"))
+
+    elif args.command == "ci":
+        with console.status("[bold yellow]Generating GitHub Actions CI workflow...", spinner="dots"):
+            ci_yaml = generate_ci_workflow()
+            write_markdown_atomic(".github/workflows/ci.yml", ci_yaml)
+        console.print(Panel("[bold green]✅ Created .github/workflows/ci.yml[/bold green]", title="SkillForge CI"))
 
     elif args.command == "debug":
-        with open(args.log_file, "r", encoding="utf-8") as f:
-            log_data = f.read()
-        res = classify_log_fast(log_data)
-        print(f"⚡ Jev/Laya Triage Output (Fast Classification): {res}")
+        with console.status("[bold red]Triaging log with local System One (Laya)...", spinner="dots"):
+            with open(args.log_file, "r", encoding="utf-8") as f:
+                log_data = f.read()
+            res = classify_log_fast(log_data)
+            cause = res['answers']['error_type']['choice']
+            conf = res['answers']['error_type']['confidence']
+        console.print(Panel(f"[bold yellow]Root Cause Category:[/bold yellow] [cyan]{cause}[/cyan]\n[bold yellow]Confidence Score:[/bold yellow] [green]{conf:.2f}[/green]", title="⚡ Local Laya Triage Result"))
 
     elif args.command == "resolve":
-        print(f"🔀 Analyzing Git merge conflict in {args.file_path}...")
-        explanation, clean_code = resolve_conflict_with_context(args.file_path)
+        with console.status("[bold blue]Parsing git log context & resolving merge conflict with Qwen...", spinner="dots"):
+            explanation, clean_code = resolve_conflict_with_context(args.file_path)
+            write_markdown_atomic(args.file_path, clean_code)
         
-        print("\n💡 Conflict Breakdown:")
-        print(explanation)
+        console.print(Panel(explanation, title="💡 Conflict Breakdown & Resolution Context", border_style="blue"))
+        console.print(Panel(f"[bold green]✅ Clean code written atomically to {args.file_path}[/bold green]"))
+
+    elif args.command == "run":
+        if not args.cmd:
+            console.print("[bold red]⚠️ Specify a command to run (e.g. uv run main.py run -- pytest)[/bold red]")
+            sys.exit(1)
+            
+        cmd = args.cmd[1:] if args.cmd[0] == "--" else args.cmd
+        console.print(f"[bold dim]🚀 Executing live command: {' '.join(cmd)}[/bold dim]\n")
         
-        # Atomically write resolved content back to disk
-        write_markdown_atomic(args.file_path, clean_code)
-        print(f"\n✅ Automatically resolved and wrote clean code to {args.file_path}!")
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            console.print(Panel("[bold red]❌ Command Failed! Intercepting stderr for instant local triage...[/bold red]"))
+            res = classify_log_fast(proc.stderr)
+            cause = res['answers']['error_type']['choice']
+            console.print(Panel(f"[bold yellow]Root Cause:[/bold yellow] [bold cyan]{cause}[/bold cyan]", title="⚡ System 1 (Laya) Fast Triage"))
+            syntax = Syntax(proc.stderr[-400:], "pytb", theme="monokai", line_numbers=True)
+            console.print(Panel(syntax, title="Terminal Stderr Snippet"))
+        else:
+            console.print(proc.stdout)
+            console.print("[bold green]✅ Command executed cleanly![/bold green]")
 
 if __name__ == "__main__":
     main()
