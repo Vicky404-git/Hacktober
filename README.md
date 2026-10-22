@@ -11,7 +11,7 @@
 ## 🚀 How to Run It
 1. Clone the repository and navigate into it:
    ```bash
-   git clone [https://github.com/vicky-404/skillforge.git](https://github.com/vicky-404/skillforge.git)
+   git clone https://github.com/vicky-404/skillforge.git
    cd skillforge
    ```
 
@@ -55,4 +55,4 @@ SkillForge separates fast deterministic decision-making from heavy text generati
 - langchain-groq - Cloud LLM integration
 
 ## 📄 License
-This project is open source and licensed under the MIT License[License].
+This project is open source and licensed under the MIT License.
