@@ -1,94 +1,90 @@
 # NEWBIE_GUIDE.md
 
-Welcome to the team! This guide will help you get up to speed with the repository structure, how to run the application, and where to focus your attention when reading the code.
+Welcome to the team! This guide will help you navigate the repository, understand its structure, and get your local environment up and running quickly.
 
 ## 1. Where to Start Reading Code
 
-Based on the detected entry points, here is the recommended path to understand the core logic:
+Based on the detected entry points, here is the recommended reading order to understand the application's core logic:
 
-1.  **`main.py`**: This is the primary entry point. Start here to understand the application's lifecycle, how it initializes, and how it interacts with other modules. Look for the `if __name__ == "__main__":` block to see how the app is launched.
-2.  **`pyproject.toml`**: Review this file to understand the project's dependencies, build system configuration, and any custom metadata. This will give you context on what libraries the project relies on.
-3.  **Core Modules**: As you read `main.py`, you will likely see imports for the following key modules. Dive into them as needed to understand specific functionalities:
-    *   `atomicFS.py`: Likely handles file system operations, possibly with atomic writes for data integrity.
-    *   `miners.py`: Suggests logic related to mining or data extraction processes.
-    *   `provider.py`: Probably an abstraction layer for data sources or external service providers.
-    *   `conflicted_app.py`: May contain logic for handling conflicts or alternative application modes.
+1.  **`main.py`**: This is the primary entry point of the application. Start here to understand the initial execution flow, how the app initializes, and which modules are imported and invoked at startup.
+2.  **`pyproject.toml`**: Review this file to understand the project's dependencies, Python version requirements, and configuration for tools like `uv` (package manager) and `pytest` (testing framework).
+3.  **Core Modules**:
+    *   **`provider.py`**: Likely contains the core logic for providing services or data.
+    *   **`miners.py`**: Suggests data mining or processing logic.
+    *   **`atomicFS.py`**: Appears to be a custom file system utility, possibly for atomic operations.
+    *   **`conflicted_app.py`**: This name suggests it might be a legacy, experimental, or conflicting version of an app module. Investigate its relationship with `main.py` and `provider.py`.
 
-**Tip**: Use the `graphify-out/GRAPH_REPORT.md` and `graph.html` files if they are generated in your local environment. These provide visual and textual overviews of the code graph, showing dependencies between modules, which can be very helpful for navigating complex codebases.
+> **Tip**: Use the `graphify-out/` directory (specifically `GRAPH_REPORT.md` and `graph.html`) if available in your environment. These files likely contain generated dependency graphs that can help visualize relationships between modules.
 
-## 2. How to Run and Test the App Locally
+## 2. Running and Testing Locally
 
 ### Prerequisites
-*   **Python**: Check the `.python-version` file to ensure you have the correct Python version installed.
-*   **uv**: The presence of `uv.lock` indicates this project uses `uv` for dependency management. Install `uv` if you haven't already.
-*   **Environment Variables**: Copy `.env.example` to `.env` and fill in any required environment variables. Check `.env.example` for a list of needed configuration.
+- **Python**: Check the required version in `pyproject.toml` or `.python-version`.
+- **uv**: The presence of `uv.lock` indicates this project uses [uv](https://docs.astral.sh/uv/) for fast Python package management. Install it if you haven't already:
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
 
-### Running the Application
-1.  **Install Dependencies**:
+### Setup
+1.  **Clone the repository**.
+2.  **Install Dependencies**:
     ```bash
     uv sync
     ```
-    This command installs all dependencies defined in `pyproject.toml` and `uv.lock`.
+    This will create a virtual environment and install all dependencies listed in `pyproject.toml` using the lock file.
+3.  **Configure Environment Variables**:
+    - Copy `.env.example` to `.env`:
+      ```bash
+      cp .env.example .env
+      ```
+    - Edit `.env` with the necessary credentials or configuration values. **Never commit `.env` to version control.**
 
-2.  **Run the Main Entry Point**:
-    ```bash
-    uv run python main.py
-    ```
-    Alternatively, if `pyproject.toml` defines a script entry point, you might be able to run it directly (e.g., `uv run <script-name>`). Check `pyproject.toml` for `[project.scripts]` or similar configuration.
+### Running the Application
+Assuming `main.py` is the entry point:
+```bash
+uv run python main.py
+```
+Or, if defined in `pyproject.toml`, there might be a script entry point:
+```bash
+uv run <script-name>
+```
+Check `pyproject.toml` under `[project.scripts]` for specific commands.
 
-### Testing the Application
-The project uses **pytest** for testing.
-
-1.  **Run All Tests**:
-    ```bash
-    uv run pytest
-    ```
-2.  **Run Specific Test Files or Functions**:
-    ```bash
-    uv run pytest path/to/test_file.py
-    uv run pytest path/to/test_file.py::test_function_name
-    ```
-3.  **View Detailed Output**:
-    Add `-v` for verbose output:
-    ```bash
-    uv run pytest -v
-    ```
-
-**Note**: Ensure any necessary test fixtures or environment variables are set up as indicated in the test files or `.env.example`.
+### Running Tests
+The project uses `pytest`. To run all tests:
+```bash
+uv run pytest
+```
+To run a specific test file (e.g., if tests are in a `tests/` directory, though not explicitly listed in the sample, they might be co-located or in a hidden folder):
+```bash
+uv run pytest path/to/test_file.py
+```
+Check `pyproject.toml` for specific `pytest` configuration (e.g., test paths, markers).
 
 ## 3. Architecture Layout Overview
 
-Here is a high-level overview of the repository structure based on the provided file tree:
+Based on the file tree, here is a high-level overview of the repository structure:
 
-*   **Core Application Logic**:
-    *   `main.py`: Entry point and main orchestration.
-    *   `atomicFS.py`: File system utilities, likely focusing on safe/atomic file operations.
-    *   `miners.py`: Core business logic for mining/extraction tasks.
-    *   `provider.py`: Abstraction for data/service providers.
-    *   `conflicted_app.py`: Possibly handles conflict resolution or alternative application flows.
+- **Core Application Logic**:
+  - `main.py`: Entry point and orchestration.
+  - `provider.py`: Core service/provider logic.
+  - `miners.py`: Data processing/mining components.
+  - `conflicted_app.py`: Potentially an alternate or legacy app module.
 
-*   **Configuration & Metadata**:
-    *   `pyproject.toml`: Project configuration, dependencies, build system.
-    *   `.python-version`: Specifies the required Python version.
-    *   `.env` / `.env.example`: Environment variables (keep `.env` out of VCS, use `.env.example` as a template).
-    *   `LICENSE`: Licensing information.
-    *   `.gitignore`: Files/directories ignored by Git.
-    *   `uv.lock`: Lock file for `uv` dependency management.
+- **Utilities & Infrastructure**:
+  - `atomicFS.py`: Custom file system utilities.
+  - `.env` / `.env.example`: Environment configuration.
 
-*   **Documentation**:
-    *   `README.md`: General project overview and quick start (start here if you haven't already).
-    *   `NEWBIE_GUIDE.md`: This file.
-    *   `prompts/skills.md`: May contain prompts or skill definitions related to the project.
+- **Project Configuration**:
+  - `pyproject.toml`: Project metadata, dependencies, and tool configuration.
+  - `uv.lock`: Lock file for reproducible dependency installation.
+  - `.python-version`: Specifies the Python version.
 
-*   **Testing**:
-    *   `test_error.log`: Log file, possibly from test runs or error tracking (check if it's auto-generated or needs manual review).
-    *   Test files (not explicitly listed in the sample, but implied by `pytest` usage) are likely in a `tests/` directory or alongside source files (e.g., `test_main.py`, `test_miners.py`).
+- **Documentation & Metadata**:
+  - `README.md`: General project documentation.
+  - `LICENSE`: Licensing information.
+  - `NEWBIE_GUIDE.md`: This file.
 
-*   **Generated Artifacts (Graphify)**:
-    *   `graphify-out/`: Contains generated code graph analysis files.
-        *   `GRAPH_REPORT.md`: Human-readable report on code structure and dependencies.
-        *   `graph.html`: Interactive visualization of the code graph.
-        *   `graph.json`, `manifest.json`, `.graphify_*` files: Machine-readable data for the graph generation tool.
-    *   *Note: These files are generated and should not be manually edited. They can be very useful for understanding complex dependencies.*
-
-**Key Takeaway**: Focus on `main.py` to understand the flow, then drill down into `miners.py`, `provider.py`, and `atomicFS.py` as you encounter their usage. Use the `graphify-out/` reports for a broader architectural view if the codebase grows complex.
+- **Generated Artifacts (Do Not Edit)**:
+  - `graphify-out/`: Contains generated dependency graphs, analysis JSON, and HTML visualizations. These are likely produced by a tool called `graphify` and should not be manually modified.
+  -

@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from laya import Router
-from miners import scan_repository
+from core.miners import scan_repository
 
 load_dotenv()
 
@@ -18,7 +18,7 @@ laya_router = Router(preload=True)
 llm = ChatGroq(
     model_name="qwen/qwen3.8-27b",
     groq_api_key=os.getenv("GROQ_API_KEY"),
-    max_tokens=512
+    max_tokens=1000
 )
 
 def load_prompt_template(prompt_name: str) -> str:

@@ -1,8 +1,8 @@
 import pytest
 from pathlib import Path
-from atomicFS import write_markdown_atomic
-from miners import scan_repository
-from provider import load_prompt_template
+from core.atomicFS import write_markdown_atomic
+from core.miners import scan_repository
+from core.provider import load_prompt_template
 
 def test_atomic_write(tmp_path):
     target = tmp_path / "test_output.md"
