@@ -220,7 +220,7 @@ Contributions, issues, and suggestions are welcome. Start by opening an issue de
 
 ## License
 
-SkillForge is intended to be released under the MIT License. Include the project's actual `LICENSE` file before representing the repository as officially licensed.
+SkillForge is intended to be released under the MIT License.
 
 ---
 
