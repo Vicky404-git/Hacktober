@@ -313,6 +313,7 @@ dependencies = [
     { name = "langchain-groq" },
     { name = "laya" },
     { name = "python-dotenv" },
+    { name = "rich" },
 ]
 
 [package.metadata]
@@ -320,6 +321,7 @@ requires-dist = [
     { name = "langchain-groq", specifier = ">=1.1.3" },
     { name = "laya", specifier = ">=0.4.13" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
+    { name = "rich", specifier = ">=15.0.0" },
 ]
 
 [[package]]

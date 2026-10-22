@@ -1,7 +1,11 @@
 import sys
 import argparse
 from atomicFS import write_markdown_atomic
-from provider import classify_log_fast, generate_skill_content
+from provider import (
+    classify_log_fast, 
+    generate_skill_content, 
+    resolve_conflict_with_context
+)
 
 def main():
     parser = argparse.ArgumentParser(description="SkillForge Dev Copilot")
@@ -16,6 +20,10 @@ def main():
     # Command: debug
     debug_parser = subparsers.add_parser("debug", help="Triage failing terminal log")
     debug_parser.add_argument("log_file", help="Path to log or stderr file")
+
+    # Command: resolve
+    resolve_parser = subparsers.add_parser("resolve", help="Context-Aware Merge Conflict Copilot")
+    resolve_parser.add_argument("file_path", help="Path to file with git merge conflicts")
 
     args = parser.parse_args()
 
@@ -42,10 +50,21 @@ description: Coding standards and error handling rules for this repo.
         print("✅ Created .agents/skills/python-conventions/SKILL.md!")
 
     elif args.command == "debug":
-        with open(args.log_file, "r") as f:
+        with open(args.log_file, "r", encoding="utf-8") as f:
             log_data = f.read()
         res = classify_log_fast(log_data)
         print(f"⚡ Jev/Laya Triage Output (Fast Classification): {res}")
+
+    elif args.command == "resolve":
+        print(f"🔀 Analyzing Git merge conflict in {args.file_path}...")
+        explanation, clean_code = resolve_conflict_with_context(args.file_path)
+        
+        print("\n💡 Conflict Breakdown:")
+        print(explanation)
+        
+        # Atomically write resolved content back to disk
+        write_markdown_atomic(args.file_path, clean_code)
+        print(f"\n✅ Automatically resolved and wrote clean code to {args.file_path}!")
 
 if __name__ == "__main__":
     main()
