@@ -14,6 +14,7 @@ from core.provider import (
     generate_ci_workflow,
     resolve_conflict_with_context
 )
+from core.miners import scan_repository, get_graphify_context
 
 console = Console()
 
@@ -33,6 +34,10 @@ def render_repo_tree(dir_path: Path, tree_node: Tree, ignore_dirs=None):
 def main():
     parser = argparse.ArgumentParser(description="SkillForge Dev Copilot")
     subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser(
+    "tour",
+    help="Guide a beginner through the repository and its relationships",
+)
 
     subparsers.add_parser("onboard", help="Generate NEWBIE_GUIDE.md")
     subparsers.add_parser("skills", help="Generate project SKILL.md rules")
@@ -117,6 +122,69 @@ def main():
                 console.print("[bold dim]Staged. Ready for manual push when you're ready.[/bold dim]")
         else:
             console.print("[bold dim]Operation cancelled. Local file untouched.[/bold dim]")
+
+    
+    elif args.command == "tour":
+        meta = scan_repository()
+        graph = get_graphify_context()
+
+        console.print(
+            Panel(
+                "[bold]Welcome to your repository![/bold]\n"
+                "Let's find where to start and how the code fits together.",
+                title="SkillForge Beginner Tour",
+                border_style="cyan",
+            )
+        )
+
+        console.print("\n[bold cyan]1. Likely starting points[/bold cyan]")
+        for item in meta["entry_points"]:
+            console.print(f"  • {item}")
+
+        if not meta["entry_points"]:
+            console.print(
+                "  No known entry point detected. "
+                "Inspect the project configuration and README."
+            )
+
+        console.print("\n[bold cyan]2. Available test runners[/bold cyan]")
+        for runner in meta["test_runners"]:
+            console.print(f"  • {runner}")
+
+        if not meta["test_runners"]:
+            console.print("  No known test runner detected.")
+
+        console.print("\n[bold cyan]3. Repository relationships[/bold cyan]")
+        if graph["available"]:
+            console.print(
+                Panel(
+                    graph["summary"][:6000],
+                    title="Graphify report",
+                    border_style="green",
+                                    )
+            )
+        else:
+            console.print(
+                Panel(
+                    graph["message"]
+                    + "\n\nUsing the repository scan as a fallback.",
+                    title="Graphify unavailable",
+                    border_style="yellow",
+                )
+            )
+
+        console.print("\n[bold cyan]4. What to do next[/bold cyan]")
+        console.print("  1. Read README.md for setup instructions.")
+        console.print("  2. Open a likely entry point.")
+        console.print("  3. Trace the modules it imports.")
+        console.print("  4. Find an existing test and run it.")
+        console.print("  5. Make one small change and verify it.")
+
+        console.print(
+            "\n[dim]Tip: Run `uv run python main.py onboard` "
+            "to generate a written guide.[/dim]"
+        )
+
 
     elif args.command == "run":
         if not args.cmd:

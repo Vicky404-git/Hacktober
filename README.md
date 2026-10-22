@@ -1,35 +1,60 @@
 # SkillForge 🛠️
 
-**A repository-aware AI developer tool that helps contributors understand codebases, generate project-specific agent skills, and diagnose development errors.**
+**Understand an unfamiliar codebase. Find where to start. Give AI coding agents project-specific skills. Diagnose development errors — from your terminal.**
 
-SkillForge is an open-source, Python-based CLI designed to reduce the friction of working with unfamiliar repositories. It combines deterministic repository inspection with AI-powered generation to help developers understand project structure and create reusable development workflows.
+SkillForge is a Python CLI developer companion designed to reduce the friction of joining or working in an unfamiliar repository. It combines deterministic repository scanning, optional [Graphify](https://github.com/graphify) code-relationship analysis, and AI-powered generation to turn a repository into something contributors can navigate and work with.
+
+> Built for developers who want more than a generic chatbot answer: repository-aware guidance, inspectable artifacts, and terminal-first workflows.
 
 ## The Problem
 
-Joining an unfamiliar codebase can be difficult. Developers often need to figure out:
+When a developer opens an unfamiliar project, they have to discover:
 
-- Where the application starts and which files matter.
-- How the project is structured and tested.
-- Which conventions AI coding agents should follow.
-- What a confusing terminal error means.
-- How to establish a basic CI workflow.
+- Which files are the best starting points?
+- How do modules and functions relate?
+- How do they install, run, and test the project?
+- What conventions should an AI coding agent follow?
+- What does a confusing terminal error mean?
+- How can they resolve a merge conflict without blindly accepting a generated fix?
 
-Generic AI assistants can explain code, but they may not have reliable, structured knowledge of a particular repository.
+This discovery work is especially frustrating for first-time contributors. Generic AI assistance may explain a file in isolation without understanding how it fits into the repository.
 
 ## The Solution
 
-SkillForge brings these workflows into one CLI. It inspects repository metadata, uses AI to generate useful artifacts, and provides terminal-based diagnostics.
+SkillForge brings several developer workflows into one CLI. It scans the repository, optionally incorporates Graphify's structural report, and uses AI where generated explanations or artifacts are useful.
 
 ### Features
 
-- **Codebase Onboarding** — Generates `NEWBIE_GUIDE.md` with repository structure, candidate entry points, and setup guidance.
-- **Agent Skill Generation** — Generates project-specific `SKILL.md` instructions for AI coding agents.
-- **Log Triage** — Classifies common terminal errors using a local model.
-- **CI Workflow Generation** — Generates a GitHub Actions workflow based on detected project metadata.
-- **Merge Conflict Assistance** — Uses file content and recent Git history to propose a merged version for review.
-- **Repository Tree** — Displays a readable directory tree in the terminal.
-- **Command Runner** — Executes selected commands and attempts to classify failures.
-- **Atomic File Writes** — Uses temporary files and atomic replacement when writing generated artifacts.
+- **Beginner Tour** — `tour` shows detected entry points, test runners, and available Graphify repository context, then gives newcomers a practical next-step checklist.
+- **Codebase Onboarding** — `onboard` generates `NEWBIE_GUIDE.md` with a suggested reading order, setup and testing guidance, and architecture context.
+- **Agent Skill Generation** — `skills` generates project-specific `SKILL.md` instructions for AI coding agents.
+- **Log Triage** — `debug` uses a local Laya model to classify common terminal errors.
+- **CI Workflow Generation** — `ci` generates a GitHub Actions workflow based on detected repository metadata.
+- **Merge Conflict Assistance** — `resolve` uses file content and recent Git history to propose a resolution for review.
+- **Repository Tree** — `tree` displays a readable directory tree in the terminal.
+- **Command Runner** — `run` executes a command and attempts to classify failures.
+- **Graphify Integration** — uses an existing Graphify graph/report to surface repository relationships; Graphify remains an optional external CLI.
+- **Safer File Writes** — generated artifacts use temporary files and atomic replacement.
+
+## How the Graphify integration works
+
+SkillForge's deterministic scanner identifies candidate entry points, test runners, and a sample of repository files. If Graphify is installed and its output exists, SkillForge can read `graphify-out/GRAPH_REPORT.md` and `graphify-out/graph.json` and include that context in onboarding.
+
+The `tour` command combines the scan with the graph report. The `onboard` command passes the available graph context into the guide-generation prompt. If Graphify is unavailable or no report exists, the tour can fall back to the deterministic scan.
+
+Graphify is an optional dependency: install and run it separately according to its own documentation.
+
+```bash
+# From the repository root, after installing Graphify
+graphify update .
+graphify explain "main.py"
+graphify query "Where should a new contributor start?"
+graphify path "main()" "write_markdown_atomic()"
+graphify affected "core/provider.py"
+graphify tree
+```
+
+Graph data can become stale after code changes. Refresh it with `graphify update .` before relying on it. Graph relationships are navigation aids, not proof that every relationship is a direct runtime call; verify important claims against source code.
 
 ## AI Architecture
 
@@ -37,15 +62,14 @@ SkillForge separates local error classification from hosted text generation.
 
 | Component | Technology | Purpose |
 |---|---|---|
-| Local inference | Laya inference library | Classify error logs locally |
-| Hosted generation | Qwen model through Groq | Generate guides, skills, CI workflows, and conflict-resolution proposals |
-| Repository inspection | Python | Detect candidate entry points, test runners, and files |
-| CLI interface | argparse + Rich | Commands and terminal output |
-| File management | Python filesystem APIs | Write generated artifacts |
+| Local inference | Laya inference library | Classifies error logs locally |
+| Hosted generation | Qwen through Groq | Generates onboarding guides, agent skills, CI workflows, and conflict-resolution proposals |
+| Repository inspection | Python | Detects candidate entry points, test runners, and files |
+| Graph context | Graphify CLI (optional) | Supplies code graph and report context |
+| CLI interface | `argparse` + Rich | Commands and terminal output |
+| File management | Python filesystem APIs | Writes generated artifacts atomically |
 
-**Open-weight AI:** SkillForge incorporates model-based inference rather than training a model from scratch. The local and hosted components have different execution and privacy characteristics.
-
-> **Current implementation note:** The submitted version configures Qwen through Groq for text generation. An Ollama-based Qwen provider is not yet implemented in this version. Verify the exact model identifiers and licenses before making model-specific claims.
+**Model note:** this implementation uses a hosted Qwen model through Groq for text generation and a local Laya model for error classification. It does not train a model from scratch, and this version does not implement an Ollama-based Qwen provider. Check the configured model identifier against the provider's current model catalogue.
 
 ## Requirements
 
@@ -53,15 +77,16 @@ SkillForge separates local error classification from hosted text generation.
 - [`uv`](https://docs.astral.sh/uv/)
 - Git for repository-related operations
 - A Groq API key for hosted text generation
-- A working local environment for the Laya inference dependency
+- A working environment for the Laya inference dependency
+- Graphify CLI only if you want graph-powered context and graph commands
 
 ## Installation
 
 Clone the repository:
 
 ```bash
-git clone https://github.com/vicky-404/skillforge.git
-cd skillforge
+git clone https://github.com/Vicky404-git/SkillForge.git
+cd SkillForge
 ```
 
 Install dependencies:
@@ -76,63 +101,69 @@ Configure environment variables:
 cp .env.example .env
 ```
 
-Add your API key to `.env`:
+Add your Groq API key to `.env`:
 
 ```dotenv
 GROQ_API_KEY=your_api_key_here
 ```
 
-Keep `.env` private. Never commit API keys or other credentials.
+Keep `.env` private. Never commit API keys, credentials, or other secrets.
+
+### Optional: Graphify
+
+Install Graphify using its official installation instructions, then build the graph from the repository root:
+
+```bash
+graphify update .
+```
+
+This creates or refreshes the graph outputs under `graphify-out/`. SkillForge can use the available report for onboarding and its beginner tour.
 
 ## Usage
 
 Run commands from the repository root.
 
-### 1. Explore the repository
+### 1. Take the beginner tour
+
+```bash
+uv run python main.py tour
+```
+
+Shows likely entry points, detected test runners, Graphify context when available, and suggested next steps for a newcomer.
+
+### 2. Explore the repository tree
 
 ```bash
 uv run python main.py tree
 ```
 
-### 2. Generate a newcomer guide
+### 3. Generate a newcomer guide
 
 ```bash
 uv run python main.py onboard
 ```
 
-Output:
+Output: `NEWBIE_GUIDE.md`
 
-```text
-NEWBIE_GUIDE.md
-```
-
-### 3. Generate agent skills
+### 4. Generate agent skills
 
 ```bash
 uv run python main.py skills
 ```
 
-Output:
+Output: `.agents/skills/python-conventions/SKILL.md`
 
-```text
-.agents/skills/python-conventions/SKILL.md
-```
-
-### 4. Generate a GitHub Actions workflow
+### 5. Generate a GitHub Actions workflow
 
 ```bash
 uv run python main.py ci
 ```
 
-Output:
-
-```text
-.github/workflows/ci.yml
-```
+Output: `.github/workflows/ci.yml`
 
 Review generated files before using them in a real project.
 
-### 5. Diagnose an existing log file
+### 6. Diagnose an existing log file
 
 ```bash
 uv run python main.py debug test_error.log
@@ -140,41 +171,42 @@ uv run python main.py debug test_error.log
 
 The local classifier returns an error category and confidence score. This is triage, not a guaranteed root-cause diagnosis.
 
-### 6. Run a command and inspect failures
+### 7. Run a command and inspect failures
 
 ```bash
 uv run python main.py run -- pytest -q
 ```
 
-SkillForge executes the selected command and attempts to classify the error if it fails.
+SkillForge executes the selected command and attempts to classify the error if it fails. Only run commands you trust.
 
-### 7. Assist with a merge conflict
+### 8. Assist with a merge conflict
 
 ```bash
 uv run python main.py resolve path/to/conflicted_file.py
 ```
 
-Inspect the proposed resolution carefully. Do not accept generated code without reviewing and testing it.
+SkillForge explains the conflict and proposes merged code. It asks before applying the result and staging the file. Inspect the diff and run relevant tests before committing.
 
 ## Project Structure
 
 ```text
-skillforge/
+SkillForge/
 ├── main.py
 ├── core/
-│   ├── provider.py
-│   ├── miners.py
-│   └── atomicFS.py
+│   ├── provider.py       # AI generation and error triage
+│   ├── miners.py         # Repository scan and Graphify context
+│   └── atomicFS.py       # Atomic file writes
 ├── prompts/
 │   ├── onboard.md
 │   ├── skills.md
 │   ├── ci.md
 │   └── resolve.md
 ├── test/
-├── NEWBIE_GUIDE.md
+│   └── test_core.py
+├── .github/workflows/
+├── .env.example
 ├── pyproject.toml
 ├── uv.lock
-├── .env.example
 └── README.md
 ```
 
@@ -186,42 +218,46 @@ Run the test suite:
 uv run pytest
 ```
 
-Run an individual test file:
+Run tests with verbose output:
 
 ```bash
 uv run pytest test/test_core.py -v
 ```
 
-Test discovery depends on the configured pytest paths and the actual location of your test files.
+Check Python syntax/import compilation:
+
+```bash
+uv run python -m compileall main.py core
+```
 
 ## Safety and Limitations
 
-- Generated documentation and skills can contain incorrect assumptions. Verify important claims against the source code.
-- Log classification identifies likely categories; it does not guarantee a correct root cause.
-- Generated CI workflows must be reviewed and validated before being used.
+- AI-generated documentation and skills may contain incorrect assumptions. Verify important claims against source code.
+- Graph relationships are useful for navigation but should not be treated as proof of direct runtime behavior without checking the code.
+- Log classification identifies likely error categories; it does not guarantee a correct root cause.
+- Generated CI workflows must be reviewed and validated.
 - Merge-conflict proposals may omit important behavior. Inspect the diff and run relevant tests.
-- The command runner executes the commands you provide. Only run commands you trust.
-- Do not send secrets, credentials, or private source code to hosted AI providers unless you understand and accept the privacy implications.
+- The command runner executes commands you provide. Only run commands you trust.
+- Hosted generation sends the prompt context to the configured provider. Do not submit secrets or private code unless you understand and accept the provider's data-handling terms.
+- Graphify is optional. Without a readable graph report, SkillForge falls back to deterministic repository metadata where supported.
 
 ## Roadmap
 
-- Add an Ollama-based Qwen provider for local text generation.
-- Improve repository analysis with source-level relationships and evidence references.
-- Validate generated agent skills before writing them.
-- Add preview and diff workflows for generated files.
-- Generate targeted tests for selected functions and verify their results.
+- Improve evidence-linked explanations and source navigation.
+- Add previews and diffs before writing generated artifacts.
+- Generate targeted tests for selected functions and run them.
 - Improve root-cause analysis by combining logs, source code, and test output.
-- Add optional Graphify integration for repository graph updates.
-- Add opt-in command history with privacy controls.
+- Add an optional local Qwen/Ollama text-generation provider.
+- Expand repository-aware guidance for additional languages and build systems.
 
 ## Contributing
 
-Contributions, issues, and suggestions are welcome. Start by opening an issue describing the problem or proposed improvement, then submit a pull request with a clear explanation and relevant tests.
+Issues, suggestions, and pull requests are welcome. Describe the problem or proposed change, include reproduction steps where possible, and run the test suite before submitting a pull request.
 
 ## License
 
-SkillForge is intended to be released under the MIT License.
+The repository's license should be confirmed from the `LICENSE` file before redistribution.
 
 ---
 
-**SkillForge — understand the codebase, teach the agent, improve the workflow.**
+**SkillForge — understand the codebase, guide the contributor, improve the workflow.**
